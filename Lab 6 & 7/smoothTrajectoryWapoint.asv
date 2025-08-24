@@ -1,0 +1,12 @@
+function [] = smoothTrajectoryWaypoint(goal_point, desired_orientation)
+
+    initial_state = getTurtlebotOdometry(odometrySubscriber, 0);
+    initial_theta = initial_state(3);
+
+    distance = sqrt((goal_point(1)-initial_state(1))^2+(goal_point(2)-initial_state(2))^2); % distance from P to G
+    alpha = atan2(goal_point(2), goal_point(1)) - initial_theta;
+
+    
+    
+
+end

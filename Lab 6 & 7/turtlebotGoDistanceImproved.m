@@ -1,0 +1,88 @@
+function turtlebotGoDistanceImproved(distance, velocityPublisher, odometrySubscriber)
+    % Initialize parameters
+    forwardSpeed = 0.4;  % Maximum speed
+    tolerance = 0.05;    % Distance tolerance
+    Kp = 1; % might need to increase this by a lot, but it seems to be working well
+
+    maxIterations = 600;  % Set a reasonable maximum iteration count
+    iterationCount = 0;
+    i = 1; % angle iteration var
+
+    % Get initial position
+    initialState = getTurtlebotOdometry(odometrySubscriber, 0);
+    initialX = initialState(1);
+    initialY = initialState(2);
+    % initialTheta = initialState(3);
+
+    % Calculate target position based on initial position and distance
+    targetX = initialX + distance * cosd(initialState(3));
+    targetY = initialY + distance * sind(initialState(3));
+
+    velocityMessage = rosmessage(velocityPublisher);
+    % Loop until the robot reaches the target position within the tolerance
+    while iterationCount < maxIterations
+        fprintf('ITERATION: [%d]\n', iterationCount);
+
+        % Get current position
+        currentState = getTurtlebotOdometry(odometrySubscriber, 0);
+        currentX = currentState(1);
+        % disp(currentX)
+        currentY = currentState(2);
+        currentTheta = currentState(3);
+
+        % calculate remaining distance to the target position
+        errorX = targetX - currentX;
+        errorY = targetY - currentY;
+        remainingDistance = sqrt(errorX^2 + errorY^2);
+        %fprintf('Remaining Distance: %.2f\n', remainingDistance);
+
+        
+        % Proportional control for direction adjustment
+        angleToTarget = atan2d(errorY, errorX);
+        %fprintf('Angle To Target: %.2f\n', angleToTarget);
+        angleError = angleToTarget - currentTheta;
+        %fprintf('Angle Error: %.2f\n', angleError);
+        angularCorrection = Kp * angleError;
+        %fprintf('Angle Correction: %.2f\n', angularCorrection);
+
+        % tolerancing
+        if remainingDistance < tolerance
+            break; 
+        end
+
+        % adjust speed based on remaining distance
+        speed = forwardSpeed * min(1, (remainingDistance / distance) + 0.1); % speed = either initial set forward speed or remainingDistance / distance
+        %fprintf('Speed: %.2f\n', speed);
+        
+        % adjust velocity
+        % velocityMessage.Linear.X = sign(distance) * speed;
+        turtlebotSendSpeed(sign(distance) * speed, 0, velocityPublisher);
+
+        % turtlebotSendSpeed(sign(distance) * speed, 0, velocityPublisher);
+        % fprintf("velocityMessage.Linear.X: %.2f\n", velocityMessage.Linear.X);
+
+        % adjust angle
+        if (mod(i, 10) == 0)
+            % maxAngularVelocity = 0.6; % Adjust based on your robot's capability
+            % angularCorrection = max(min(angularCorrection, maxAngularVelocity), -maxAngularVelocity);
+            % velocityMessage.Angular.Z = angularCorrection;
+            % fprintf("velocityMessage.Angular.Z: %.2f\n", velocityMessage.Angular.Z);
+            turtlebotTurnAngle(angularCorrection, velocityPublisher, odometrySubscriber);
+            i = 0;
+        end
+
+        % Short pause to prevent overwhelming the robot with commands
+        iterationCount = iterationCount + 1;
+        i = i + 1;
+
+        if iterationCount >= maxIterations
+            disp('Maximum iterations reached, stopping TurtleBot.');
+            break;
+        end
+
+        pause(0.05);
+    end
+
+    % Stop the robot
+    turtlebotStop(velocityPublisher);
+end
