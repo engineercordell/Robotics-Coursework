@@ -1,0 +1,5 @@
+UPDATED CHANGES:
+
+08/30/2020
+Filename: dxl_Grab.m
+Changed the grasping angle for the Dynamixel motors from 22 to 12.
